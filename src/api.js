@@ -3,11 +3,27 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
 const isLocalDev = (url) =>
   /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+)(:\d+)?(\/|$)/i.test(url)
 
+// Host http:// yang diizinkan (tanpa HTTPS) — default: API produksi.
+// Bisa ditimpa via VITE_ALLOW_HTTP_HOSTS di .env (pisahkan dengan koma).
+const extraHttpHosts = (import.meta.env.VITE_ALLOW_HTTP_HOSTS || '139.190.96.203')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean)
+
+const isAllowedHttpHost = (url) =>
+  extraHttpHosts.some((host) => {
+    try {
+      return new RegExp(`^https?://${host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(:\\d+)?(/|$)`).test(url)
+    } catch {
+      return false
+    }
+  })
+
 export async function apiRequest(path, options = {}) {
   if (!API_BASE_URL) {
     throw new Error('VITE_API_BASE_URL belum dikonfigurasi')
   }
-  if (!API_BASE_URL.startsWith('https://') && !isLocalDev(API_BASE_URL)) {
+  if (!API_BASE_URL.startsWith('https://') && !isLocalDev(API_BASE_URL) && !isAllowedHttpHost(API_BASE_URL)) {
     throw new Error('API wajib HTTPS atau localhost')
   }
 

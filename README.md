@@ -17,7 +17,9 @@ Lalu buka `http://localhost:5173/admin` (atau `/admin` setelah build).
 
 Base URL diatur lewat `VITE_API_BASE_URL` (lihat `.env`). Kini menunjuk ke API
 produksi: `http://139.190.96.203:8091/api/v1`. `src/api.js` mengirim bearer token
-admin dari `sessionStorage` dan memaksa HTTPS atau localhost.
+admin dari `sessionStorage`. Koneksi HTTP non-HTTPS hanya diizinkan untuk
+localhost/IP pribadi atau host yang terdaftar di `VITE_ALLOW_HTTP_HOSTS`
+(default: `139.190.96.203`).
 
 ### Endpoint yang dipakai (cocok dengan `internal/routes/routes.go`)
 
