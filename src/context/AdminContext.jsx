@@ -15,6 +15,8 @@ export function AdminProvider({ children }) {
   const [reports, setReports] = useState([])
   const [listings, setListings] = useState([])
   const [tokos, setTokos] = useState([])
+  const [orders, setOrders] = useState([])
+  const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -29,6 +31,8 @@ export function AdminProvider({ children }) {
       adminApi.reports(),
       adminApi.listings(),
       adminApi.tokos(),
+      adminApi.orders(),
+      adminApi.logs(),
     ])
 
     if (results[0].status === 'fulfilled') setAnalytics(results[0].value?.analytics || {})
@@ -37,6 +41,8 @@ export function AdminProvider({ children }) {
     if (results[3].status === 'fulfilled') setReports(results[3].value?.reports || [])
     if (results[4].status === 'fulfilled') setListings(results[4].value?.data || [])
     if (results[5].status === 'fulfilled') setTokos(results[5].value?.tokos || [])
+    if (results[6].status === 'fulfilled') setOrders(results[6].value?.orders || results[6].value?.data || [])
+    if (results[7].status === 'fulfilled') setLogs(results[7].value?.logs || results[7].value?.data || [])
 
     const failures = results.filter((r) => r.status === 'rejected')
     if (failures.length === results.length) {
@@ -72,6 +78,8 @@ export function AdminProvider({ children }) {
     setReports([])
     setListings([])
     setTokos([])
+    setOrders([])
+    setLogs([])
     setAnalytics({})
   }, [])
 
@@ -106,6 +114,51 @@ export function AdminProvider({ children }) {
     )
   }, [])
 
+  const createUser = useCallback(async (payload) => {
+    const response = await adminApi.createUser(payload)
+    await loadAll()
+    return response
+  }, [loadAll])
+
+  const updateUser = useCallback(async (id, payload) => {
+    const response = await adminApi.updateUser(id, payload)
+    await loadAll()
+    return response
+  }, [loadAll])
+
+  const saveToko = useCallback(async (id, payload) => {
+    const response = id ? await adminApi.updateToko(id, payload) : await adminApi.createToko(payload)
+    await loadAll()
+    return response
+  }, [loadAll])
+
+  const deleteToko = useCallback(async (id) => {
+    await adminApi.deleteToko(id)
+    setTokos((prev) => prev.filter((toko) => toko.id !== id))
+  }, [])
+
+  const saveListing = useCallback(async (id, payload) => {
+    const response = id ? await adminApi.updateListing(id, payload) : await adminApi.createListing(payload)
+    await loadAll()
+    return response
+  }, [loadAll])
+
+  const deleteListing = useCallback(async (id) => {
+    await adminApi.deleteListing(id)
+    setListings((prev) => prev.filter((listing) => listing.id !== id))
+  }, [])
+
+  const updateOrder = useCallback(async (id, payload) => {
+    const response = await adminApi.updateOrder(id, payload)
+    await loadAll()
+    return response
+  }, [loadAll])
+
+  const deleteOrder = useCallback(async (id) => {
+    await adminApi.deleteOrder(id)
+    setOrders((prev) => prev.filter((order) => order.id !== id))
+  }, [])
+
   const storeNameById = useCallback(
     (id) => tokos.find((t) => t.id === id)?.business_name || 'Toko',
     [tokos]
@@ -125,10 +178,20 @@ export function AdminProvider({ children }) {
     reports,
     listings,
     tokos,
+    orders,
+    logs,
     deleteUser,
     deactivateUser,
     verifyUser,
     reviewReport,
+    createUser,
+    updateUser,
+    saveToko,
+    deleteToko,
+    saveListing,
+    deleteListing,
+    updateOrder,
+    deleteOrder,
     storeNameById,
   }
 

@@ -1,11 +1,39 @@
 import { useState } from 'react'
-import { Store, CheckCircle2, XCircle, Building2, Bike, RefreshCw, Star } from 'lucide-react'
+import { Store, CheckCircle2, XCircle, Building2, Bike, RefreshCw, Star, Plus, Pencil, Trash2 } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 import ConfirmDialog from '../components/ConfirmDialog'
+import AdminFormDialog from '../components/AdminFormDialog'
 
 export default function StoresPage() {
-  const { tokos, verifications, loading, refresh, verifyUser } = useAdmin()
+  const { tokos, verifications, loading, refresh, verifyUser, saveToko, deleteToko } = useAdmin()
   const [confirm, setConfirm] = useState(null) // {user, status}
+  const [formToko, setFormToko] = useState(null)
+  const [formValues, setFormValues] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const fields = [
+    { name: 'business_name', label: 'Nama toko', required: true },
+    { name: 'business_category', label: 'Kategori', required: true },
+    { name: 'address', label: 'Alamat', required: true },
+    { name: 'operational_hours', label: 'Jam operasional', required: true },
+    { name: 'owner_id', label: 'ID pemilik', required: true },
+  ]
+
+  const openForm = (toko = null) => {
+    setFormToko(toko)
+    setFormValues(toko ? { ...toko } : { business_name: '', business_category: '', address: '', operational_hours: '', owner_id: '' })
+  }
+
+  const submitForm = async (event) => {
+    event.preventDefault(); setSubmitting(true)
+    try { await saveToko(formToko?.id, formValues); setFormToko(null); setFormValues({}) }
+    catch (e) { alert(e.message) } finally { setSubmitting(false) }
+  }
+
+  const removeToko = async () => {
+    try { await deleteToko(confirm.id) } catch (e) { alert(e.message) }
+    setConfirm(null)
+  }
 
   const pendingTokos = verifications.filter((u) => u.role === 'toko' || (u.business_name && u.business_name.length > 0))
   const pendingKurirs = verifications.filter((u) => u.role === 'kurir' || (u.vehicle_type && u.vehicle_type.length > 0))
@@ -88,17 +116,18 @@ export default function StoresPage() {
             {tokos.length} toko aktif • {verifications.length} antrean verifikasi
           </p>
         </div>
-        <button
-          onClick={refresh}
-          style={{
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => openForm()} style={{ border: 0, background: '#2E7D32', color: 'white', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}><Plus size={15} /> Tambah Toko</button>
+          <button onClick={refresh} style={{
             border: '1px solid #D0D5DD', background: 'white',
             padding: '10px 18px', borderRadius: 10,
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 6,
           }}
         >
-          <RefreshCw size={15} /> Refresh
-        </button>
+            <RefreshCw size={15} /> Refresh
+          </button>
+        </div>
       </div>
 
       <h2 style={{ fontSize: 16, fontWeight: 900, margin: '0 0 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -140,6 +169,10 @@ export default function StoresPage() {
             <div style={{ color: '#1976D2', background: '#E3F2FD', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800 }}>
               {t.operational_hours || '—'}
             </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => openForm(t)} title="Edit toko" style={{ border: 0, background: '#E3F2FD', color: '#1565C0', padding: 8, borderRadius: 8, cursor: 'pointer' }}><Pencil size={15} /></button>
+              <button onClick={() => setConfirm(t)} title="Hapus toko" style={{ border: 0, background: '#FFEBEE', color: '#D32F2F', padding: 8, borderRadius: 8, cursor: 'pointer' }}><Trash2 size={15} /></button>
+            </div>
           </div>
         ))}
       </div>
@@ -155,7 +188,7 @@ export default function StoresPage() {
       {renderPending(pendingKurirs, true)}
 
       <ConfirmDialog
-        open={Boolean(confirm)}
+        open={Boolean(confirm?.user)}
         title={confirm?.status === 'approved' ? 'Setujui Verifikasi?' : 'Tolak Verifikasi?'}
         message={confirm
           ? `${confirm.user.full_name} (${confirm.user.email}) akan ${confirm.status === 'approved' ? 'disetujui dan diaktifkan' : 'ditolak'}.`
@@ -164,6 +197,8 @@ export default function StoresPage() {
         onConfirm={handleVerify}
         onCancel={() => setConfirm(null)}
       />
+      <ConfirmDialog open={Boolean(confirm && !confirm.user)} title="Hapus Toko?" message={confirm ? `${confirm.business_name} akan dihapus permanen.` : ''} danger onConfirm={removeToko} onCancel={() => setConfirm(null)} />
+      <AdminFormDialog open={Boolean(formToko) || Object.keys(formValues).length > 0} title={formToko ? 'Edit Toko' : 'Tambah Toko'} fields={fields} values={formValues} onChange={(name, value) => setFormValues((prev) => ({ ...prev, [name]: value }))} onSubmit={submitForm} onCancel={() => { setFormToko(null); setFormValues({}) }} submitting={submitting} />
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Search, Trash2, Ban, RefreshCw } from 'lucide-react'
+import { Search, Trash2, Ban, RefreshCw, Plus, Pencil } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 import ConfirmDialog from '../components/ConfirmDialog'
+import AdminFormDialog from '../components/AdminFormDialog'
 
 const statusLabel = (status) => {
   switch (status) {
@@ -14,10 +15,27 @@ const statusLabel = (status) => {
 }
 
 export default function UsersPage() {
-  const { users, loading, deleteUser, deactivateUser, refresh } = useAdmin()
+  const { users, loading, deleteUser, deactivateUser, createUser, updateUser, refresh } = useAdmin()
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [confirm, setConfirm] = useState(null) // {type:'delete'|'ban', user}
+  const [formUser, setFormUser] = useState(null)
+  const [formValues, setFormValues] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const userFields = [
+    { name: 'full_name', label: 'Nama lengkap', required: true },
+    { name: 'email', label: 'Email', type: 'email', required: true },
+    { name: 'password', label: 'Password', type: 'password', required: !formUser, placeholder: formUser ? 'Kosongkan jika tidak diubah' : '' },
+    { name: 'role', label: 'Role', type: 'select', required: true, options: [
+      { value: 'user', label: 'Customer' }, { value: 'toko', label: 'Store Owner' },
+      { value: 'kurir', label: 'Kurir' }, { value: 'admin', label: 'Admin' },
+    ] },
+    { name: 'account_status', label: 'Status', type: 'select', required: true, options: [
+      { value: 'active', label: 'Aktif' }, { value: 'suspended', label: 'Diblokir' },
+      { value: 'pending_verification', label: 'Menunggu Verifikasi' },
+    ] },
+  ]
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -41,6 +59,30 @@ export default function UsersPage() {
     setConfirm(null)
   }
 
+  const openUserForm = (user = null) => {
+    setFormUser(user)
+    setFormValues(user
+      ? { full_name: user.full_name || '', email: user.email || '', role: user.role || 'user', account_status: user.account_status || 'active' }
+      : { full_name: '', email: '', password: '', role: 'user', account_status: 'active' })
+  }
+
+  const handleUserSubmit = async (event) => {
+    event.preventDefault()
+    setSubmitting(true)
+    try {
+      const payload = { ...formValues }
+      if (!payload.password) delete payload.password
+      if (formUser) await updateUser(formUser.id, payload)
+      else await createUser(payload)
+      setFormUser(null)
+      setFormValues({})
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -50,17 +92,24 @@ export default function UsersPage() {
             Total {users.length} pengguna terdaftar
           </p>
         </div>
-        <button
-          onClick={refresh}
-          style={{
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => openUserForm()} style={{
+            border: 0, background: '#2E7D32', color: 'white', padding: '10px 18px',
+            borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}><Plus size={15} /> Tambah Pengguna</button>
+          <button
+            onClick={refresh}
+            style={{
             border: '1px solid #D0D5DD', background: 'white',
             padding: '10px 18px', borderRadius: 10,
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 6,
           }}
         >
-          <RefreshCw size={15} /> Refresh
-        </button>
+              <RefreshCw size={15} /> Refresh
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -162,6 +211,11 @@ export default function UsersPage() {
                   </td>
                   <td style={{ padding: '14px 20px' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => openUserForm(u)}
+                        title="Edit pengguna"
+                        style={{ border: 0, background: '#E3F2FD', color: '#1565C0', padding: 8, borderRadius: 8, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                      ><Pencil size={16} /></button>
                       {u.account_status !== 'suspended' && (
                         <button
                           onClick={() => setConfirm({ type: 'ban', user: u })}
@@ -206,6 +260,17 @@ export default function UsersPage() {
         danger={confirm?.type === 'delete'}
         onConfirm={handleAction}
         onCancel={() => setConfirm(null)}
+      />
+
+      <AdminFormDialog
+        open={Boolean(formUser) || formUser === null && Object.keys(formValues).length > 0}
+        title={formUser ? 'Edit Pengguna' : 'Tambah Pengguna'}
+        fields={userFields}
+        values={formValues}
+        onChange={(name, value) => setFormValues((prev) => ({ ...prev, [name]: value }))}
+        onSubmit={handleUserSubmit}
+        onCancel={() => { setFormUser(null); setFormValues({}) }}
+        submitting={submitting}
       />
     </div>
   )

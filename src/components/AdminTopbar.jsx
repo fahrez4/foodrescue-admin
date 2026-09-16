@@ -1,4 +1,4 @@
-import { Menu, Search, Bell, LogOut } from 'lucide-react'
+import { Menu, Bell, LogOut } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 
 export default function AdminTopbar({ title, onMenu }) {
@@ -22,9 +22,6 @@ export default function AdminTopbar({ title, onMenu }) {
       <h1 style={{ flex: 1, fontSize: 22, fontWeight: 900, margin: 0, color: '#1F2933' }}>
         {title}
       </h1>
-      <button style={{ border: 0, background: 'transparent', padding: 8, cursor: 'pointer' }}>
-        <Search size={20} color="#667085" />
-      </button>
       <button style={{ border: 0, background: 'transparent', padding: 8, cursor: 'pointer' }}>
         <Bell size={20} color="#667085" />
       </button>

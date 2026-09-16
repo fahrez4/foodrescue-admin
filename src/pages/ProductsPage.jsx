@@ -1,14 +1,51 @@
 import { useState, useMemo } from 'react'
-import { Package, Search, RefreshCw, Flame } from 'lucide-react'
+import { Package, Search, RefreshCw, Flame, Plus, Pencil, Trash2 } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
+import AdminFormDialog from '../components/AdminFormDialog'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 const fmtRp = (n) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0)
 
 export default function ProductsPage() {
-  const { listings, loading, refresh, storeNameById } = useAdmin()
+  const { listings, tokos, loading, refresh, storeNameById, saveListing, deleteListing } = useAdmin()
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
+  const [formListing, setFormListing] = useState(null)
+  const [formValues, setFormValues] = useState({})
+  const [confirm, setConfirm] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const fields = [
+    { name: 'name', label: 'Nama produk', required: true },
+    { name: 'toko_id', label: 'Toko', type: 'select', required: true, options: tokos.map((toko) => ({ value: toko.id, label: toko.business_name })) },
+    { name: 'category', label: 'Kategori', required: true },
+    { name: 'initial_price', label: 'Harga awal', type: 'number', min: 0, required: true },
+    { name: 'current_price', label: 'Harga jual', type: 'number', min: 0, required: true },
+    { name: 'stock_quantity', label: 'Stok', type: 'number', min: 0, required: true },
+    { name: 'status', label: 'Status', type: 'select', required: true, options: [
+      { value: 'active', label: 'Aktif' }, { value: 'sold_out', label: 'Habis' }, { value: 'inactive', label: 'Nonaktif' },
+    ] },
+  ]
+
+  const openForm = (listing = null) => {
+    setFormListing(listing)
+    setFormValues(listing ? { ...listing } : { name: '', toko_id: tokos[0]?.id || '', category: '', initial_price: '', current_price: '', stock_quantity: 0, status: 'active' })
+  }
+
+  const submitForm = async (event) => {
+    event.preventDefault()
+    setSubmitting(true)
+    try {
+      await saveListing(formListing?.id, { ...formValues, initial_price: Number(formValues.initial_price), current_price: Number(formValues.current_price), stock_quantity: Number(formValues.stock_quantity) })
+      setFormListing(null); setFormValues({})
+    } catch (e) { alert(e.message) } finally { setSubmitting(false) }
+  }
+
+  const removeListing = async () => {
+    try { await deleteListing(confirm.id) } catch (e) { alert(e.message) }
+    setConfirm(null)
+  }
 
   const categories = useMemo(
     () => ['Semua', ...new Set(listings.map((p) => p.category).filter(Boolean))],
@@ -33,12 +70,14 @@ export default function ProductsPage() {
             {listings.length} makanan terselamatkan aktif
           </p>
         </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={() => openForm()} style={{ border: 0, background: '#2E7D32', color: 'white', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}><Plus size={15} /> Tambah Produk</button>
         <button onClick={refresh} style={{
           border: '1px solid #D0D5DD', background: 'white',
           padding: '10px 18px', borderRadius: 10,
           fontSize: 13, fontWeight: 700, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 6,
-        }}><RefreshCw size={15} /> Refresh</button>
+        }}><RefreshCw size={15} /> Refresh</button></div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -112,6 +151,10 @@ export default function ProductsPage() {
                 {fmtRp(p.initial_price)}
               </div>
             </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => openForm(p)} title="Edit produk" style={{ border: 0, background: '#E3F2FD', color: '#1565C0', padding: 8, borderRadius: 8, cursor: 'pointer' }}><Pencil size={15} /></button>
+              <button onClick={() => setConfirm(p)} title="Hapus produk" style={{ border: 0, background: '#FFEBEE', color: '#D32F2F', padding: 8, borderRadius: 8, cursor: 'pointer' }}><Trash2 size={15} /></button>
+            </div>
           </div>
         ))}
       </div>
@@ -126,6 +169,9 @@ export default function ProductsPage() {
           Harga naik dinamis terhadap waktu — semakin dekat ke safe_until, semakin murah. Listing dengan status selain aktif tidak ditampilkan.
         </div>
       )}
+
+      <ConfirmDialog open={Boolean(confirm)} title="Hapus Produk?" message={confirm ? `${confirm.name} akan dihapus permanen.` : ''} danger onConfirm={removeListing} onCancel={() => setConfirm(null)} />
+      <AdminFormDialog open={Boolean(formListing) || Object.keys(formValues).length > 0} title={formListing ? 'Edit Produk' : 'Tambah Produk'} fields={fields} values={formValues} onChange={(name, value) => setFormValues((prev) => ({ ...prev, [name]: value }))} onSubmit={submitForm} onCancel={() => { setFormListing(null); setFormValues({}) }} submitting={submitting} />
     </div>
   )
 }

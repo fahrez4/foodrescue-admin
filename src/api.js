@@ -78,6 +78,8 @@ export const adminApi = {
 
   // Pengguna
   users: (role) => apiRequest(`/admin/users${role ? `?role=${encodeURIComponent(role)}` : ''}`),
+  createUser: (payload) => apiRequest('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
+  updateUser: (id, payload) => apiRequest(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteUser: (id) => apiRequest(`/admin/users/${id}`, { method: 'DELETE' }),
   deactivateUser: (id) => apiRequest(`/admin/users/${id}/deactivate`, { method: 'PUT' }),
   pendingUsers: () => apiRequest('/admin/verifications'),
@@ -96,5 +98,19 @@ export const adminApi = {
 
   // Data publik (toko aktif & listing aktif)
   tokos: () => apiRequest('/tokos'),
+  adminTokos: () => apiRequest('/admin/tokos'),
+  createToko: (payload) => apiRequest('/admin/tokos', { method: 'POST', body: JSON.stringify(payload) }),
+  updateToko: (id, payload) => apiRequest(`/admin/tokos/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteToko: (id) => apiRequest(`/admin/tokos/${id}`, { method: 'DELETE' }),
   listings: () => apiRequest('/listings'),
+  adminListings: () => apiRequest('/admin/listings'),
+  createListing: (payload) => apiRequest('/admin/listings', { method: 'POST', body: JSON.stringify(payload) }),
+  updateListing: (id, payload) => apiRequest(`/admin/listings/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteListing: (id) => apiRequest(`/admin/listings/${id}`, { method: 'DELETE' }),
+
+  // Operasional pesanan dan audit.
+  orders: () => apiRequest('/admin/orders'),
+  updateOrder: (id, payload) => apiRequest(`/admin/orders/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteOrder: (id) => apiRequest(`/admin/orders/${id}`, { method: 'DELETE' }),
+  logs: () => apiRequest('/admin/logs'),
 }
