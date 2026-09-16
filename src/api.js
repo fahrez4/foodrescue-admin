@@ -39,27 +39,46 @@ export async function apiRequest(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.message || 'Permintaan ke server gagal')
+    throw new Error(data?.message || data?.error || 'Permintaan ke server gagal')
   }
 
   return data
 }
 
-export const adminApi = {
-  login: (email, password) =>
-    apiRequest('/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  users: () => apiRequest('/admin/users'),
-  deleteUser: (id) => apiRequest(`/admin/users/${id}`, { method: 'DELETE' }),
-  stores: () => apiRequest('/admin/stores'),
-  products: () => apiRequest('/foods'),
-  orders: () => apiRequest('/admin/orders'),
-  logs: () => apiRequest('/admin/logs'),
-  communityPosts: (status = 'open') => apiRequest(`/community/posts?status=${status}`),
-}
-
+// Aplikasi mobile (dipakai saat pengguna/admin mengakses modul lain).
 export const authApi = {
   registerUser: (payload) => apiRequest('/register', { method: 'POST', body: JSON.stringify(payload) }),
   registerStore: (payload) => apiRequest('/register/store', { method: 'POST', body: JSON.stringify(payload) }),
-  loginUser: (email, password) => apiRequest('/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  loginStore: (email, password) => apiRequest('/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  loginUser: (email, password) => apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  loginStore: (email, password) => apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+}
+
+// Admin panel — endpoint di: internal/routes/routes.go (grup /admin).
+export const adminApi = {
+  login: (email, password) =>
+    apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+
+  dashboard: () => apiRequest('/admin/dashboard'),
+
+  // Pengguna
+  users: (role) => apiRequest(`/admin/users${role ? `?role=${encodeURIComponent(role)}` : ''}`),
+  deleteUser: (id) => apiRequest(`/admin/users/${id}`, { method: 'DELETE' }),
+  deactivateUser: (id) => apiRequest(`/admin/users/${id}/deactivate`, { method: 'PUT' }),
+  pendingUsers: () => apiRequest('/admin/verifications'),
+  verifyUser: (id, status) =>
+    apiRequest(`/admin/verifications/${id}`, { method: 'POST', body: JSON.stringify({ status }) }),
+  verifyNgo: (id, isVerified) =>
+    apiRequest(`/admin/users/${id}/verify-ngo`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_verified: isVerified }),
+    }),
+
+  // Laporan
+  reports: () => apiRequest('/admin/reports'),
+  reviewReport: (id, status) =>
+    apiRequest(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+
+  // Data publik (toko aktif & listing aktif)
+  tokos: () => apiRequest('/tokos'),
+  listings: () => apiRequest('/listings'),
 }

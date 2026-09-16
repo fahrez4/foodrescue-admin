@@ -20,7 +20,7 @@ const pages = [
 
 const titles = [
   'Dashboard', 'Kelola Pengguna', 'Kelola Toko', 'Kelola Produk',
-  'Kelola Pesanan', 'Analytics', 'Laporan & Export', 'Audit Logs', 'Pengaturan',
+  'Kelola Pesanan', 'Analytics', 'Laporan & Export', 'Audit & Aktivitas', 'Pengaturan',
 ]
 
 export default function AdminLayout() {

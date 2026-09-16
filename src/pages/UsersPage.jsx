@@ -1,29 +1,40 @@
 import { useState, useMemo } from 'react'
-import { Search, Trash2, UserX, UserCheck } from 'lucide-react'
+import { Search, Trash2, Ban, RefreshCw } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 import ConfirmDialog from '../components/ConfirmDialog'
 
+const statusLabel = (status) => {
+  switch (status) {
+    case 'active': return ['Aktif', '#E8F5E9', '#2E7D32']
+    case 'suspended': return ['Diblokir', '#FFEBEE', '#D32F2F']
+    case 'pending_verification': return ['Menunggu Verifikasi', '#FFF3E0', '#E65100']
+    case 'rejected': return ['Ditolak', '#FFEBEE', '#C62828']
+    default: return [status || '—', '#F1F5F9', '#667085']
+  }
+}
+
 export default function UsersPage() {
-  const { users, loading, deleteUser, refresh } = useAdmin()
+  const { users, loading, deleteUser, deactivateUser, refresh } = useAdmin()
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('Semua')
-  const [confirm, setConfirm] = useState(null)
+  const [roleFilter, setRoleFilter] = useState('')
+  const [confirm, setConfirm] = useState(null) // {type:'delete'|'ban', user}
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return users.filter((u) => {
       const matchQ =
-        (u.name || '').toLowerCase().includes(q) ||
-        (u.email || '').toLowerCase().includes(q) ||
-        (u.phone || '').includes(q)
-      const matchR = roleFilter === 'Semua' || u.role === roleFilter
+        (u.full_name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      const matchR = !roleFilter || u.role === roleFilter
       return matchQ && matchR
     })
   }, [users, search, roleFilter])
 
-  const handleDelete = async () => {
+  const handleAction = async () => {
+    if (!confirm) return
     try {
-      await deleteUser(confirm.id)
+      if (confirm.type === 'delete') await deleteUser(confirm.user.id)
+      else await deactivateUser(confirm.user.id)
     } catch (e) {
       alert(e.message)
     }
@@ -45,9 +56,10 @@ export default function UsersPage() {
             border: '1px solid #D0D5DD', background: 'white',
             padding: '10px 18px', borderRadius: 10,
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
           }}
         >
-          🔄 Refresh
+          <RefreshCw size={15} /> Refresh
         </button>
       </div>
 
@@ -62,7 +74,7 @@ export default function UsersPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama, email, atau telepon..."
+            placeholder="Cari nama atau email..."
             style={{ flex: 1, border: 0, outline: 0, padding: '0 10px', fontSize: 14 }}
           />
         </div>
@@ -75,11 +87,11 @@ export default function UsersPage() {
             fontSize: 13, cursor: 'pointer',
           }}
         >
-          <option>Semua</option>
+          <option value="">Semua Role</option>
+          <option value="user">Customer</option>
+          <option value="toko">Store Owner</option>
+          <option value="kurir">Kurir</option>
           <option value="admin">Admin</option>
-          <option value="superAdmin">Super Admin</option>
-          <option value="storeOwner">Store Owner</option>
-          <option value="customer">Customer</option>
         </select>
       </div>
 
@@ -90,7 +102,7 @@ export default function UsersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ background: '#F8FAFC' }}>
             <tr>
-              {['PENGGUNA', 'ROLE', 'STATUS', 'AKSI'].map((h) => (
+              {['PENGGUNA', 'ROLE', 'TRUST', 'STATUS', 'AKSI'].map((h) => (
                 <th key={h} style={{
                   textAlign: 'left', padding: '14px 20px',
                   fontSize: 11, fontWeight: 900, color: '#667085',
@@ -101,74 +113,98 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: '#667085' }}>Loading...</td></tr>
+              <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: '#667085' }}>Loading...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: '#667085' }}>Tidak ada pengguna</td></tr>
+              <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: '#667085' }}>Tidak ada pengguna</td></tr>
             )}
-            {!loading && filtered.map((u) => (
-              <tr key={u.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                <td style={{ padding: '14px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: '#E8F5E9', color: '#2E7D32',
-                      display: 'grid', placeItems: 'center',
-                      fontWeight: 900,
+            {!loading && filtered.map((u) => {
+              const [label, bg, fg] = statusLabel(u.account_status)
+              return (
+                <tr key={u.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '14px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: 10,
+                        background: '#E8F5E9', color: '#2E7D32',
+                        display: 'grid', placeItems: 'center',
+                        fontWeight: 900,
+                      }}>
+                        {(u.full_name?.[0] || '?').toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>{u.full_name}</div>
+                        <div style={{ color: '#667085', fontSize: 12 }}>{u.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <span style={{
+                      background: u.role === 'admin' ? '#F3E5F5' : u.role === 'kurir' ? '#EDE7F6' : '#E3F2FD',
+                      color: u.role === 'admin' ? '#7B1FA2' : u.role === 'kurir' ? '#4527A0' : '#1976D2',
+                      padding: '4px 10px', borderRadius: 20,
+                      fontSize: 11, fontWeight: 800, textTransform: 'capitalize',
                     }}>
-                      {(u.name?.[0] || '?').toUpperCase()}
+                      {u.role}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 20px', color: '#667085', fontSize: 13 }}>
+                    {u.trust_score ?? '-'}
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <span style={{
+                      background: bg, color: fg,
+                      padding: '4px 10px', borderRadius: 20,
+                      fontSize: 11, fontWeight: 800,
+                    }}>
+                      {label}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {u.account_status !== 'suspended' && (
+                        <button
+                          onClick={() => setConfirm({ type: 'ban', user: u })}
+                          title="Blokir pengguna"
+                          style={{
+                            border: 0, background: '#FFF3E0', color: '#E65100',
+                            padding: 8, borderRadius: 8, cursor: 'pointer',
+                            display: 'grid', placeItems: 'center',
+                          }}
+                        >
+                          <Ban size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setConfirm({ type: 'delete', user: u })}
+                        title="Hapus pengguna"
+                        style={{
+                          border: 0, background: '#FFEBEE', color: '#D32F2F',
+                          padding: 8, borderRadius: 8, cursor: 'pointer',
+                          display: 'grid', placeItems: 'center',
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 14 }}>{u.name}</div>
-                      <div style={{ color: '#667085', fontSize: 12 }}>{u.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{
-                    background: u.role === 'admin' ? '#F3E5F5' : u.role === 'superAdmin' ? '#FFEBEE' : '#E3F2FD',
-                    color: u.role === 'admin' ? '#7B1FA2' : u.role === 'superAdmin' ? '#D32F2F' : '#1976D2',
-                    padding: '4px 10px', borderRadius: 20,
-                    fontSize: 11, fontWeight: 800,
-                  }}>
-                    {u.role}
-                  </span>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{
-                    background: u.status === 'active' ? '#E8F5E9' : '#FFEBEE',
-                    color: u.status === 'active' ? '#2E7D32' : '#D32F2F',
-                    padding: '4px 10px', borderRadius: 20,
-                    fontSize: 11, fontWeight: 800,
-                  }}>
-                    {u.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                  </span>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  <button
-                    onClick={() => setConfirm(u)}
-                    title="Hapus pengguna"
-                    style={{
-                      border: 0, background: '#FFEBEE', color: '#D32F2F',
-                      padding: 8, borderRadius: 8, cursor: 'pointer',
-                      display: 'grid', placeItems: 'center',
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       <ConfirmDialog
         open={Boolean(confirm)}
-        title="Hapus Pengguna?"
-        message={confirm ? `${confirm.name} (${confirm.email}) akan dihapus permanen.` : ''}
-        danger
-        onConfirm={handleDelete}
+        title={confirm?.type === 'delete' ? 'Hapus Pengguna?' : 'Blokir Pengguna?'}
+        message={confirm
+          ? confirm.type === 'delete'
+            ? `${confirm.user.full_name} (${confirm.user.email}) akan dihapus permanen.`
+            : `${confirm.user.full_name} (${confirm.user.email}) akan diblokir (suspended).`
+          : ''}
+        danger={confirm?.type === 'delete'}
+        onConfirm={handleAction}
         onCancel={() => setConfirm(null)}
       />
     </div>

@@ -1,24 +1,41 @@
 # FoodRescue Admin Web
 
-React JavaScript dashboard for the FoodRescue admin workspace. The current UI uses local demo data so it can be previewed before the backend is available.
+React (Vite) dashboard untuk workspace admin FoodRescue, terintegrasi dengan
+backend FoodRescue API.
 
 ## Run
 
 ```powershell
-cd admin-web
+cd foodrescue-admin
 npm install
 npm run dev
 ```
 
+Lalu buka `http://localhost:5173/admin` (atau `/admin` setelah build).
+
 ## Backend connection
 
-Copy `.env.example` to `.env`, then set `VITE_API_BASE_URL` to the real HTTPS API. The adapter in `src/api.js` sends the admin bearer token through `sessionStorage` and rejects non-HTTPS URLs.
+Base URL diatur lewat `VITE_API_BASE_URL` (lihat `.env`). Kini menunjuk ke API
+produksi: `http://139.190.96.203:8091/api/v1`. `src/api.js` mengirim bearer token
+admin dari `sessionStorage` dan memaksa HTTPS atau localhost.
 
-Expected endpoints:
+### Endpoint yang dipakai (cocok dengan `internal/routes/routes.go`)
 
-- `POST /admin/login`
-- `GET /admin/products`
-- `GET /admin/users`
-- `GET /admin/orders`
+| Modul | Endpoint |
+| --- | --- |
+| Login | `POST /auth/login` → `{ token, user }` |
+| Dashboard | `GET /admin/dashboard` → `{ analytics }` |
+| Pengguna | `GET /admin/users`, `DELETE /admin/users/:id`, `PUT /admin/users/:id/deactivate` |
+| Verifikasi | `GET /admin/verifications`, `POST /admin/verifications/:id` |
+| Laporan | `GET /admin/reports`, `PUT /admin/reports/:id` |
+| Toko aktif (publik) | `GET /tokos` → `{ tokos }` |
+| Produk (publik) | `GET /listings` → `{ data }` |
 
-The backend must enforce JWT signature, expiry, role, object permissions, rate limiting, and audit logging. Never put admin passwords or API secrets in Vite environment variables.
+Catatan bentuk respons penting: users memakai `{ users: [...] }` dengan field
+`full_name` & `account_status`; login memakai `user.full_name`. Halaman
+"Kelola Pesanan", "Analytics", dan "Audit & Aktivitas" diisi dari
+`/admin/dashboard` dan antrean moderasi karena backend belum menyediakan
+`/admin/orders` dan `/admin/logs`.
+
+Login admin produksi diset lewat database; jangan pernah menaruh password di
+variabel lingkungan Vite atau di repo.

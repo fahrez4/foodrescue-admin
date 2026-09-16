@@ -8,9 +8,13 @@ export function AdminProvider({ children }) {
     () => Boolean(sessionStorage.getItem('foodrescue_admin_token'))
   )
   const [admin, setAdmin] = useState(null)
+
+  const [analytics, setAnalytics] = useState({})
   const [users, setUsers] = useState([])
-  const [products, setProducts] = useState([])
-  const [logs, setLogs] = useState([])
+  const [verifications, setVerifications] = useState([])
+  const [reports, setReports] = useState([])
+  const [listings, setListings] = useState([])
+  const [tokos, setTokos] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -18,35 +22,27 @@ export function AdminProvider({ children }) {
     if (!isAuthenticated) return
     setLoading(true)
     setError(null)
-    try {
-      const [usersRes, productsRes, logsRes] = await Promise.allSettled([
-        adminApi.users(),
-        adminApi.products(),
-        adminApi.logs(),
-      ])
+    const results = await Promise.allSettled([
+      adminApi.dashboard(),
+      adminApi.users(),
+      adminApi.pendingUsers(),
+      adminApi.reports(),
+      adminApi.listings(),
+      adminApi.tokos(),
+    ])
 
-      if (usersRes.status === 'fulfilled') {
-        setUsers(usersRes.value?.data || [])
-      } else {
-        console.warn('Users fetch failed:', usersRes.reason?.message)
-      }
+    if (results[0].status === 'fulfilled') setAnalytics(results[0].value?.analytics || {})
+    if (results[1].status === 'fulfilled') setUsers(results[1].value?.users || [])
+    if (results[2].status === 'fulfilled') setVerifications(results[2].value?.pending_users || [])
+    if (results[3].status === 'fulfilled') setReports(results[3].value?.reports || [])
+    if (results[4].status === 'fulfilled') setListings(results[4].value?.data || [])
+    if (results[5].status === 'fulfilled') setTokos(results[5].value?.tokos || [])
 
-      if (productsRes.status === 'fulfilled') {
-        setProducts(productsRes.value?.data || [])
-      } else {
-        console.warn('Products fetch failed:', productsRes.reason?.message)
-      }
-
-      if (logsRes.status === 'fulfilled') {
-        setLogs(logsRes.value?.data || [])
-      } else {
-        console.warn('Logs fetch failed:', logsRes.reason?.message)
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+    const failures = results.filter((r) => r.status === 'rejected')
+    if (failures.length === results.length) {
+      setError(failures[0].reason?.message || 'Gagal memuat data')
     }
+    setLoading(false)
   }, [isAuthenticated])
 
   useEffect(() => {
@@ -55,20 +51,16 @@ export function AdminProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const response = await adminApi.login(email, password)
-    const payload = response?.data || response
-    const user = payload?.user || payload
-
+    const user = response?.user
     if (!['admin', 'superAdmin'].includes(user?.role)) {
       throw new Error('Akun ini bukan admin')
     }
-
-    if (payload?.token) {
-      sessionStorage.setItem('foodrescue_admin_token', payload.token)
+    if (response?.token) {
+      sessionStorage.setItem('foodrescue_admin_token', response.token)
     }
-
-    setAdmin(user)
+    setAdmin({ ...user, name: user?.full_name || user?.name || 'Admin' })
     setIsAuthenticated(true)
-    return payload
+    return response
   }, [])
 
   const logout = useCallback(() => {
@@ -76,14 +68,48 @@ export function AdminProvider({ children }) {
     setIsAuthenticated(false)
     setAdmin(null)
     setUsers([])
-    setProducts([])
-    setLogs([])
+    setVerifications([])
+    setReports([])
+    setListings([])
+    setTokos([])
+    setAnalytics({})
   }, [])
 
   const deleteUser = useCallback(async (id) => {
     await adminApi.deleteUser(id)
     setUsers((prev) => prev.filter((u) => u.id !== id))
+    setVerifications((prev) => prev.filter((u) => u.id !== id))
   }, [])
+
+  const deactivateUser = useCallback(async (id) => {
+    await adminApi.deactivateUser(id)
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, account_status: 'suspended' } : u))
+    )
+  }, [])
+
+  const verifyUser = useCallback(async (id, status) => {
+    await adminApi.verifyUser(id, status)
+    setVerifications((prev) => prev.filter((u) => u.id !== id))
+    const newStatus = status === 'approved' ? 'active' : 'rejected'
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, account_status: newStatus } : u))
+    )
+  }, [])
+
+  const reviewReport = useCallback(async (id, status) => {
+    await adminApi.reviewReport(id, status)
+    setReports((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, report_status: status } : r
+      )
+    )
+  }, [])
+
+  const storeNameById = useCallback(
+    (id) => tokos.find((t) => t.id === id)?.business_name || 'Toko',
+    [tokos]
+  )
 
   const value = {
     isAuthenticated,
@@ -91,19 +117,19 @@ export function AdminProvider({ children }) {
     login,
     logout,
     refresh: loadAll,
-    users,
-    products,
-    logs,
     loading,
     error,
+    analytics,
+    users,
+    verifications,
+    reports,
+    listings,
+    tokos,
     deleteUser,
-    stats: {
-      totalUsers: users.length,
-      totalProducts: products.length,
-      totalLogs: logs.length,
-      activeUsers: users.filter((u) => u.status === 'active').length,
-      bannedUsers: users.filter((u) => u.status === 'banned').length,
-    },
+    deactivateUser,
+    verifyUser,
+    reviewReport,
+    storeNameById,
   }
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>
