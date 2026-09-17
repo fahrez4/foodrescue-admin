@@ -20,34 +20,86 @@ export function AdminProvider({ children }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  // ──────────────── LOAD ALL ────────────────
   const loadAll = useCallback(async () => {
     if (!isAuthenticated) return
     setLoading(true)
     setError(null)
+
     const results = await Promise.allSettled([
-      adminApi.dashboard(),
-      adminApi.users(),
-      adminApi.pendingUsers(),
-      adminApi.reports(),
-      adminApi.listings(),
-      adminApi.tokos(),
-      adminApi.orders(),
-      adminApi.logs(),
+      adminApi.dashboard(),      // 0
+      adminApi.users(),          // 1
+      adminApi.pendingUsers(),   // 2
+      adminApi.reports(),        // 3
+      adminApi.listings(),       // 4
+      adminApi.adminTokos(),     // 5 ← FIX: pakai adminTokos, bukan tokos
+      adminApi.orders(),         // 6
+      adminApi.logs(),           // 7
     ])
 
-    if (results[0].status === 'fulfilled') setAnalytics(results[0].value?.analytics || {})
-    if (results[1].status === 'fulfilled') setUsers(results[1].value?.users || [])
-    if (results[2].status === 'fulfilled') setVerifications(results[2].value?.pending_users || [])
-    if (results[3].status === 'fulfilled') setReports(results[3].value?.reports || [])
-    if (results[4].status === 'fulfilled') setListings(results[4].value?.data || [])
-    if (results[5].status === 'fulfilled') setTokos(results[5].value?.tokos || [])
-    if (results[6].status === 'fulfilled') setOrders(results[6].value?.orders || results[6].value?.data || [])
-    if (results[7].status === 'fulfilled') setLogs(results[7].value?.logs || results[7].value?.data || [])
+    // Dashboard
+    if (results[0].status === 'fulfilled') {
+      setAnalytics(results[0].value?.analytics || results[0].value || {})
+    }
 
+    // Users
+    if (results[1].status === 'fulfilled') {
+      setUsers(results[1].value?.users || [])
+    }
+
+    // Verifications ← FIX: backend return "verifications", bukan "pending_users"
+    if (results[2].status === 'fulfilled') {
+      setVerifications(results[2].value?.verifications || results[2].value?.pending_users || [])
+    }
+
+    // Reports
+    if (results[3].status === 'fulfilled') {
+      setReports(results[3].value?.reports || [])
+    }
+
+    // Listings
+    if (results[4].status === 'fulfilled') {
+      const v = results[4].value
+      setListings(v?.data || v?.listings || [])
+    }
+
+    // Tokos (admin) ← FIX: map user_id → owner_id untuk form
+    if (results[5].status === 'fulfilled') {
+      const rawTokos = results[5].value?.tokos || []
+      const normalized = rawTokos.map((t) => ({
+        ...t,
+        owner_id: t.owner_id || t.user_id || '',
+        business_name: t.business_name || '',
+        business_category: t.business_category || '',
+        address: t.address || '',
+        operational_hours: t.operational_hours || '',
+      }))
+      setTokos(normalized)
+    }
+
+    // Orders
+    if (results[6].status === 'fulfilled') {
+      const v = results[6].value
+      setOrders(v?.orders || v?.data || [])
+    }
+
+    // Logs
+    if (results[7].status === 'fulfilled') {
+      const v = results[7].value
+      setLogs(v?.logs || v?.data || [])
+    }
+
+    // Cek kalau semua request gagal
     const failures = results.filter((r) => r.status === 'rejected')
     if (failures.length === results.length) {
       setError(failures[0].reason?.message || 'Gagal memuat data')
+    } else if (failures.length > 0) {
+      // Log warning untuk request yang gagal (bukan blocking)
+      failures.forEach((f, idx) => {
+        console.warn(`[AdminContext] Request #${idx} failed:`, f.reason?.message)
+      })
     }
+
     setLoading(false)
   }, [isAuthenticated])
 
@@ -55,6 +107,7 @@ export function AdminProvider({ children }) {
     loadAll()
   }, [loadAll])
 
+  // ──────────────── AUTH ────────────────
   const login = useCallback(async (email, password) => {
     const response = await adminApi.login(email, password)
     const user = response?.user
@@ -83,6 +136,7 @@ export function AdminProvider({ children }) {
     setAnalytics({})
   }, [])
 
+  // ──────────────── USER ACTIONS ────────────────
   const deleteUser = useCallback(async (id) => {
     await adminApi.deleteUser(id)
     setUsers((prev) => prev.filter((u) => u.id !== id))
@@ -108,57 +162,88 @@ export function AdminProvider({ children }) {
   const reviewReport = useCallback(async (id, status) => {
     await adminApi.reviewReport(id, status)
     setReports((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, report_status: status } : r
-      )
+      prev.map((r) => (r.id === id ? { ...r, report_status: status } : r))
     )
   }, [])
 
-  const createUser = useCallback(async (payload) => {
-    const response = await adminApi.createUser(payload)
-    await loadAll()
-    return response
-  }, [loadAll])
+  const createUser = useCallback(
+    async (payload) => {
+      const response = await adminApi.createUser(payload)
+      await loadAll()
+      return response
+    },
+    [loadAll]
+  )
 
-  const updateUser = useCallback(async (id, payload) => {
-    const response = await adminApi.updateUser(id, payload)
-    await loadAll()
-    return response
-  }, [loadAll])
+  const updateUser = useCallback(
+    async (id, payload) => {
+      const response = await adminApi.updateUser(id, payload)
+      await loadAll()
+      return response
+    },
+    [loadAll]
+  )
 
-  const saveToko = useCallback(async (id, payload) => {
-    const response = id ? await adminApi.updateToko(id, payload) : await adminApi.createToko(payload)
-    await loadAll()
-    return response
-  }, [loadAll])
+  // ──────────────── TOKO ACTIONS ────────────────
+  const saveToko = useCallback(
+    async (id, payload) => {
+      // Normalisasi payload — pastikan owner_id terkirim
+      const cleanPayload = {
+        business_name: payload.business_name || '',
+        business_category: payload.business_category || '',
+        address: payload.address || '',
+        operational_hours: payload.operational_hours || '',
+        owner_id: payload.owner_id || payload.user_id || '',
+      }
+
+      const response = id
+        ? await adminApi.updateToko(id, cleanPayload)
+        : await adminApi.createToko(cleanPayload)
+
+      await loadAll()
+      return response
+    },
+    [loadAll]
+  )
 
   const deleteToko = useCallback(async (id) => {
     await adminApi.deleteToko(id)
     setTokos((prev) => prev.filter((toko) => toko.id !== id))
   }, [])
 
-  const saveListing = useCallback(async (id, payload) => {
-    const response = id ? await adminApi.updateListing(id, payload) : await adminApi.createListing(payload)
-    await loadAll()
-    return response
-  }, [loadAll])
+  // ──────────────── LISTING ACTIONS ────────────────
+  const saveListing = useCallback(
+    async (id, payload) => {
+      const response = id
+        ? await adminApi.updateListing(id, payload)
+        : await adminApi.createListing(payload)
+      await loadAll()
+      return response
+    },
+    [loadAll]
+  )
 
   const deleteListing = useCallback(async (id) => {
     await adminApi.deleteListing(id)
     setListings((prev) => prev.filter((listing) => listing.id !== id))
   }, [])
 
-  const updateOrder = useCallback(async (id, payload) => {
-    const response = await adminApi.updateOrder(id, payload)
-    await loadAll()
-    return response
-  }, [loadAll])
+  // ──────────────── ORDER ACTIONS ────────────────
+  const updateOrder = useCallback(
+    async (id, payload) => {
+      const response = await adminApi.updateOrder(id, payload)
+      await loadAll()
+      return response
+    },
+    [loadAll]
+  )
 
   const deleteOrder = useCallback(async (id) => {
     await adminApi.deleteOrder(id)
     setOrders((prev) => prev.filter((order) => order.id !== id))
   }, [])
 
+  // ──────────────── HELPERS ────────────────
   const storeNameById = useCallback(
     (id) => tokos.find((t) => t.id === id)?.business_name || 'Toko',
     [tokos]
