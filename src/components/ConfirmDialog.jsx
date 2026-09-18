@@ -1,4 +1,13 @@
-export default function ConfirmDialog({ open, title, message, onConfirm, onCancel, danger = false }) {
+export default function ConfirmDialog({
+  open,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  danger = false,
+  loading = false,
+  confirmLabel = 'Konfirmasi',
+}) {
   if (!open) return null
 
   return (
@@ -15,17 +24,19 @@ export default function ConfirmDialog({ open, title, message, onConfirm, onCance
         </h3>
         <p style={{ color: '#667085', margin: '0 0 24px', fontSize: 14 }}>{message}</p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onCancel} style={{
+          <button onClick={onCancel} disabled={loading} style={{
             border: '1px solid #D0D5DD', background: 'white',
             padding: '10px 18px', borderRadius: 8,
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            fontSize: 14, fontWeight: 600,
+            cursor: loading ? 'not-allowed' : 'pointer',
           }}>Batal</button>
-          <button onClick={onConfirm} style={{
+          <button onClick={onConfirm} disabled={loading} style={{
             border: 0,
-            background: danger ? '#D32F2F' : '#2E7D32',
+            background: loading ? '#94A3B8' : danger ? '#D32F2F' : '#2E7D32',
             color: 'white', padding: '10px 18px', borderRadius: 8,
-            fontSize: 14, fontWeight: 700, cursor: 'pointer',
-          }}>Konfirmasi</button>
+            fontSize: 14, fontWeight: 700,
+            cursor: loading ? 'not-allowed' : 'pointer',
+          }}>{loading ? 'Memproses...' : confirmLabel}</button>
         </div>
       </div>
     </div>

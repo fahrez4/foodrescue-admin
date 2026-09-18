@@ -15,6 +15,8 @@ export function AdminProvider({ children }) {
   const [reports, setReports] = useState([])
   const [listings, setListings] = useState([])
   const [tokos, setTokos] = useState([])
+  const [orders, setOrders] = useState([])
+  const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -29,6 +31,8 @@ export function AdminProvider({ children }) {
       adminApi.reports(),
       adminApi.listings(),
       adminApi.tokos(),
+      adminApi.orders(),
+      adminApi.logs(),
     ])
 
     if (results[0].status === 'fulfilled') setAnalytics(results[0].value?.analytics || {})
@@ -37,6 +41,8 @@ export function AdminProvider({ children }) {
     if (results[3].status === 'fulfilled') setReports(results[3].value?.reports || [])
     if (results[4].status === 'fulfilled') setListings(results[4].value?.data || [])
     if (results[5].status === 'fulfilled') setTokos(results[5].value?.tokos || [])
+    if (results[6].status === 'fulfilled') setOrders(results[6].value?.orders || [])
+    if (results[7].status === 'fulfilled') setLogs(results[7].value?.logs || [])
 
     const failures = results.filter((r) => r.status === 'rejected')
     if (failures.length === results.length) {
@@ -48,6 +54,22 @@ export function AdminProvider({ children }) {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  useEffect(() => {
+    if (!isAuthenticated || admin) return
+    adminApi.profile()
+      .then((res) => {
+        const user = res?.user
+        if (user) {
+          setAdmin({ ...user, name: user.full_name || user.name || 'Admin' })
+        }
+      })
+      .catch((e) => {
+        if (String(e?.message || '').toLowerCase().includes('sesi')) {
+          setIsAuthenticated(false)
+        }
+      })
+  }, [isAuthenticated, admin])
 
   const login = useCallback(async (email, password) => {
     const response = await adminApi.login(email, password)
@@ -72,6 +94,8 @@ export function AdminProvider({ children }) {
     setReports([])
     setListings([])
     setTokos([])
+    setOrders([])
+    setLogs([])
     setAnalytics({})
   }, [])
 
@@ -106,6 +130,18 @@ export function AdminProvider({ children }) {
     )
   }, [])
 
+  const updateOrderStatus = useCallback(async (id, orderStatus) => {
+    await adminApi.updateOrderStatus(id, orderStatus)
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === id
+          ? { ...o, order_status: orderStatus, payment_status: orderStatus === 'selesai' ? 'paid' : o.payment_status }
+          : o
+      )
+    )
+    adminApi.logs().then((res) => setLogs(res?.logs || [])).catch(() => {})
+  }, [])
+
   const storeNameById = useCallback(
     (id) => tokos.find((t) => t.id === id)?.business_name || 'Toko',
     [tokos]
@@ -125,10 +161,13 @@ export function AdminProvider({ children }) {
     reports,
     listings,
     tokos,
+    orders,
+    logs,
     deleteUser,
     deactivateUser,
     verifyUser,
     reviewReport,
+    updateOrderStatus,
     storeNameById,
   }
 

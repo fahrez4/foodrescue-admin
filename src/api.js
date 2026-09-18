@@ -74,6 +74,10 @@ export const adminApi = {
   login: (email, password) =>
     apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
+  profile: () => apiRequest('/auth/profile'),
+
+  health: () => apiRequest('/health'),
+
   dashboard: () => apiRequest('/admin/dashboard'),
 
   // Pengguna
@@ -93,6 +97,23 @@ export const adminApi = {
   reports: () => apiRequest('/admin/reports'),
   reviewReport: (id, status) =>
     apiRequest(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+
+  // Pesanan (lintas platform)
+  orders: (status, q) => {
+    const params = new URLSearchParams()
+    if (status) params.set('status', status)
+    if (q) params.set('q', q)
+    const qs = params.toString()
+    return apiRequest(`/admin/orders${qs ? `?${qs}` : ''}`)
+  },
+  updateOrderStatus: (id, orderStatus) =>
+    apiRequest(`/admin/orders/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ order_status: orderStatus }),
+    }),
+
+  // Jejak audit aksi admin
+  logs: () => apiRequest('/admin/logs'),
 
   // Data publik (toko aktif & listing aktif)
   tokos: () => apiRequest('/tokos'),

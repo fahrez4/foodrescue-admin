@@ -26,6 +26,9 @@ const titles = [
 export default function AdminLayout() {
   const { isAuthenticated } = useAdmin()
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === 'undefined' || window.innerWidth > 900
+  )
 
   useEffect(() => {
     document.title = 'FoodRescue Admin'
@@ -35,11 +38,28 @@ export default function AdminLayout() {
 
   const CurrentPage = pages[selectedIndex]
 
+  const closeOnMobile = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 900) setSidebarOpen(false)
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
-      <AdminSidebar selectedIndex={selectedIndex} onSelect={setSelectedIndex} />
+      <AdminSidebar
+        selectedIndex={selectedIndex}
+        onSelect={setSelectedIndex}
+        open={sidebarOpen}
+        onClose={closeOnMobile}
+      />
+      <div
+        className={`fr-sidebar-backdrop${sidebarOpen ? ' fr-open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <AdminTopbar title={titles[selectedIndex]} />
+        <AdminTopbar
+          title={titles[selectedIndex]}
+          onMenu={() => setSidebarOpen((v) => !v)}
+          onNavigate={setSelectedIndex}
+        />
         <main style={{ flex: 1, overflow: 'auto' }}>
           <CurrentPage />
         </main>

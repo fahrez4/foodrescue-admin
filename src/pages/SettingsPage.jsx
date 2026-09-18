@@ -1,8 +1,30 @@
-import { Settings as SettingsIcon, User, ShieldCheck, Server, LogOut, Globe } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Settings as SettingsIcon, User, ShieldCheck, Server, LogOut, Globe, RefreshCw } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
+import { adminApi } from '../api'
 
 export default function SettingsPage() {
   const { admin, logout } = useAdmin()
+  const [status, setStatus] = useState('checking')
+  const [checkedAt, setCheckedAt] = useState(null)
+
+  const checkConnection = useCallback(async () => {
+    setStatus('checking')
+    try {
+      await adminApi.health()
+      setStatus('online')
+    } catch {
+      setStatus('offline')
+    }
+    setCheckedAt(new Date())
+  }, [])
+
+  useEffect(() => {
+    checkConnection()
+  }, [checkConnection])
+
+  const dotColor = status === 'online' ? '#4CAF50' : status === 'offline' ? '#F44336' : '#FFB300'
+  const statusLabel = status === 'online' ? 'Terhubung' : status === 'offline' ? 'Tidak Terhubung' : 'Memeriksa...'
 
   return (
     <div style={{ padding: 24 }}>
@@ -21,10 +43,10 @@ export default function SettingsPage() {
             color: 'white', display: 'grid', placeItems: 'center',
             fontWeight: 900, fontSize: 18,
           }}>
-            {(admin?.full_name?.[0] || 'A').toUpperCase()}
+            {(admin?.full_name?.[0] || admin?.name?.[0] || 'A').toUpperCase()}
           </div>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 17 }}>{admin?.full_name || 'Admin'}</div>
+            <div style={{ fontWeight: 900, fontSize: 17 }}>{admin?.full_name || admin?.name || 'Admin'}</div>
             <div style={{ color: '#667085', fontSize: 13 }}>{admin?.email || '—'}</div>
           </div>
         </div>
@@ -57,9 +79,9 @@ export default function SettingsPage() {
               </div>
               <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{
-                  width: 9, height: 9, borderRadius: 5, background: '#4CAF50', display: 'inline-block',
+                  width: 9, height: 9, borderRadius: 5, background: dotColor, display: 'inline-block',
                 }} />
-                Terhubung
+                {statusLabel}
               </div>
             </div>
           </div>
@@ -74,6 +96,25 @@ export default function SettingsPage() {
               </code>
             </div>
           </div>
+        </div>
+
+        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={checkConnection}
+            style={{
+              border: '1px solid #D0D5DD', background: 'white',
+              padding: '10px 16px', borderRadius: 10,
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <RefreshCw size={15} /> Tes Koneksi
+          </button>
+          {checkedAt && (
+            <span style={{ color: '#94A3B8', fontSize: 12 }}>
+              Terakhir dicek {checkedAt.toLocaleTimeString('id-ID')}
+            </span>
+          )}
         </div>
       </div>
 

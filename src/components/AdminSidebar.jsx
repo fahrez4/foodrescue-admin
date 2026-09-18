@@ -15,9 +15,9 @@ const items = [
   { icon: Settings, label: 'Pengaturan' },
 ]
 
-export default function AdminSidebar({ selectedIndex, onSelect }) {
+export default function AdminSidebar({ selectedIndex, onSelect, open = true, onClose }) {
   return (
-    <aside style={{
+    <aside className={`fr-sidebar${open ? ' fr-open' : ''}`} style={{
       width: 260, background: '#0F172A', color: 'white',
       display: 'flex', flexDirection: 'column', flexShrink: 0,
     }}>
@@ -39,7 +39,7 @@ export default function AdminSidebar({ selectedIndex, onSelect }) {
           return (
             <button
               key={i}
-              onClick={() => onSelect(i)}
+              onClick={() => { onSelect(i); onClose?.() }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14,
                 width: '100%', padding: '12px 14px', marginBottom: 3,
